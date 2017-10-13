@@ -126,6 +126,21 @@ void getgps(TinyGPS &gps)
   Serial.print("Course (degrees): "); Serial.println(gps.f_course()); 
   // And same goes for speed
   Serial.print("Speed(kmph): "); Serial.println(gps.f_speed_kmph());
+  Serial.print("Satellites: "); Serial.println(gps.satellites());
+  Serial.println();
+
+  // check if fix is valid
+  // http://arduiniana.org/libraries/tinygps/
+  float flat, flon;
+  unsigned long fix_age; // returns +- latitude/longitude in degrees
+  gps.f_get_position(&flat, &flon, &fix_age);
+  if (fix_age == TinyGPS::GPS_INVALID_AGE)
+    Serial.println("No fix detected");
+  else if (fix_age > 5000)
+    Serial.println("Warning: possible stale data!");
+  else
+    // all is well. no need to print this
+    // Serial.println("Data is current.");
   Serial.println();
   
   // Here you can print statistics on the sentences.
