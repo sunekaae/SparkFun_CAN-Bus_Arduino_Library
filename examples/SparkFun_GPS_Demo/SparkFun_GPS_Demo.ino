@@ -68,6 +68,7 @@ void setup()
   Serial.println("");
   Serial.println("GPS Shield QuickStart Example Sketch v12");
   Serial.println("       ...waiting for lock...           ");
+  Serial.println("(first fix after factory can take 12.5 minutes)");
   Serial.println("");
 }
 
