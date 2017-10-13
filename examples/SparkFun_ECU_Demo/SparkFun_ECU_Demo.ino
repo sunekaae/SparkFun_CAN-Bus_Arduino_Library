@@ -66,9 +66,6 @@ SoftwareSerial uart_gps(4, 5);
 //Create instance of TinyGPS
 TinyGPS gps;
 
-//Declare prototype for TinyGPS library functions
-void getgps(TinyGPS &gps);
-
 //Declare GPS variables
 float latitude;
 float longitude;
@@ -80,6 +77,7 @@ byte minute;
 byte second;
 byte hundredths;
 float gps_speed;
+bool is_gps_data_new;
 
 
 //Declare SD File
@@ -99,7 +97,7 @@ char buffer[64];  //Data will be temporarily stored to this buffer before being 
 //********************************Setup Loop*********************************//
 void setup() {
   //Initialize Serial communication for debugging
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("ECU Demo");
 
   //Begin LCD serial communication
@@ -168,42 +166,57 @@ void setup() {
 
 //********************************Main Loop*********************************//
 void loop() {
+  unsigned long start = millis(); // use to keep track of running every second
 
   while (digitalRead(CLICK) == HIGH) {
 
-    digitalWrite(LED3, HIGH); //Turn on LED to indicate CAN Bus traffic
-
-    Canbus.ecu_req(ENGINE_RPM, buffer); //Request engine RPM
-    EngineRPM = buffer;
-    Serial.print("Engine RPM: "); //Uncomment for Serial debugging
-    Serial.println(buffer);
-    delay(100);
-
-
-    digitalWrite(LED3, LOW); //Turn off LED3
-    delay(500);
-
-    File  dataFile = SD.open("data.txt", FILE_WRITE); //Open uSD file to log data
-
-    //If data file can't be opened, throw error.
-    if (!dataFile) {
-      clear_lcd();
-      lcd.print("Error opening");
-      lcd.write(COMMAND);
-      lcd.write(LINE2);
-      lcd.print("data.txt");
-      while (1);
-    }
-
-    clear_lcd();
-    lcd.print("Logging.Click");
-    lcd.write(COMMAND);
-    lcd.write(LINE2);
-    lcd.print("to stop logging");
-
-    if (uart_gps.available())    // While there is data on the RX pin...
+    while (uart_gps.available())    // While there is data on the RX pin...
     {
       digitalWrite(LED2, HIGH); //Signal on D8 that GPS data received.
+      int c = uart_gps.read();
+      if (gps.encode(c))
+      {
+        getgps(gps);
+        Serial.print("Lat/Long: ");
+        Serial.print(latitude);
+        Serial.print("/");
+        Serial.println(longitude);
+        digitalWrite(LED2, LOW); //Turn off D8 LED.
+        break;
+      }
+    }
+
+    if ((millis() - start) > 1000)   // every second also run...
+    {
+      digitalWrite(LED3, HIGH); //Turn on LED to indicate CAN Bus traffic
+
+      Canbus.ecu_req(ENGINE_RPM, buffer); //Request engine RPM
+      EngineRPM = buffer;
+      Serial.print("Engine RPM: "); //Uncomment for Serial debugging
+      Serial.println(buffer);
+      //delay(100);
+
+
+      digitalWrite(LED3, LOW); //Turn off LED3
+      //delay(500);
+
+      File  dataFile = SD.open("data.txt", FILE_WRITE); //Open uSD file to log data
+
+      //If data file can't be opened, throw error.
+      if (!dataFile) {
+        clear_lcd();
+        lcd.print("Error opening");
+        lcd.write(COMMAND);
+        lcd.write(LINE2);
+        lcd.print("data.txt");
+        while (1);
+      }
+
+      clear_lcd();
+      lcd.print("Logging.Click");
+      lcd.write(COMMAND);
+      lcd.write(LINE2);
+      lcd.print("to stop logging");
 
       //Print Latitude/Longitude to SD card
       dataFile.print("Lat/Long: ");
@@ -222,15 +235,16 @@ void loop() {
       dataFile.print("GPS Speed(kmph): ");
       dataFile.println(gps_speed);
 
-      digitalWrite(LED2, LOW); //Turn off D8 LED.
+      dataFile.print("Engine RPM: ");
+      dataFile.println(EngineRPM);
+
+      dataFile.println();
+      dataFile.flush();
+      dataFile.close();   //Close data logging file
+
+      start = millis(); // reset second timer
     }
 
-    dataFile.print("Engine RPM: ");
-    dataFile.println(EngineRPM);
-
-    dataFile.println();
-    dataFile.flush();
-    dataFile.close();   //Close data logging file
   }
   clear_lcd();
   lcd.print("Logging stopped.");
