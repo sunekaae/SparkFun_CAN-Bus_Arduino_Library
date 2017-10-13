@@ -99,6 +99,8 @@ void getgps(TinyGPS &gps)
   // Then call this function
   gps.f_get_position(&latitude, &longitude);
   // You can now print variables latitude and longitude
+  // seems that lat/lon comes back with wrong decimal positions, need to divide by 10. don't know why
+  latitude = latitude/10; longitude = longitude/10;
   Serial.print("Lat/Long: "); 
   Serial.print(latitude,5); 
   Serial.print(", "); 
